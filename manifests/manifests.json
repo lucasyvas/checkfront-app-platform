@@ -1,0 +1,8 @@
+{
+  "slack": {
+    "name": "Slack",
+    "description": "Get slack notifications for all of your Checkfront events.",
+    "authCallbackUrl": "http://localhost:3000",
+    "homeUrl": "https://slack.com"
+  }
+}

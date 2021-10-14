@@ -1,47 +1,42 @@
-# TypeScript Next.js example
+# App Platform
 
-This is a really simple project that shows the usage of Next.js with TypeScript.
+A crude demonstration of a first step toward supporting an app platform for Checkfront.
 
-## Preview
+## Limitations
 
-Preview the example live on [StackBlitz](http://stackblitz.com/):
+Persistent storage relating to which apps have been authorized has been omitted for demonstration simplicity - killing the server will clear all memory of previously authorized applications.
 
-[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/vercel/next.js/tree/canary/examples/with-typescript)
+## Major Caveats
 
-## Deploy your own
+The primary caveats are related to user authentication and app authorization:
 
-Deploy the example using [Vercel](https://vercel.com?utm_source=github&utm_medium=readme&utm_campaign=next-example):
+1. Authentication is basically omitted, which limits this to a being a local demo
+2. App credential creation is restricted to https://test.checkfront.com/manage/developer
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/git/external?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-typescript&project-name=with-typescript&repository-name=with-typescript)
+## Workarounds
 
-## How to use it?
+To work around the aforementioned caveats, App Platform will expect two environment variables when launching in `.env.local`:
 
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
+1. `NEXT_PUBLIC_CF_COMPANY=test`
+2. `CF_CONSUMER_KEY=`
 
-```bash
-npx create-next-app --example with-typescript with-typescript-app
-# or
-yarn create next-app --example with-typescript with-typescript-app
-```
+`CF_CONSUMER_KEY` assumes that a _single_ Oauth2 credential is configured in Checkfront Core for the *entirety* of App Platform. This is completely inadqueate for several reasons, but since no API currently exists in core to generate Oauth2 credentials on demand, the user would have to manually generate a consumer key in core and paste it into app platform. For the purposes of this demo, we don't want to do that, so App Platform is limited to a single API credential.
 
-Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=next-example) ([Documentation](https://nextjs.org/docs/deployment)).
+App Platform will run on port `80` in development, so you will have to change Core's exposed HTTP port in `docker-compose.yml` to not conflict.
 
-## Notes
+## Installing
 
-This example shows how to integrate the TypeScript type system into Next.js. Since TypeScript is supported out of the box with Next.js, all we have to do is to install TypeScript.
+`yarn`
+## Running
 
-```
-npm install --save-dev typescript
-```
+`yarn dev`
 
-To enable TypeScript's features, we install the type declarations for React and Node.
+## Not Implemented
 
-```
-npm install --save-dev @types/react @types/react-dom @types/node
-```
+A lot of important stuff!
 
-When we run `next dev` the next time, Next.js will start looking for any `.ts` or `.tsx` files in our project and builds it. It even automatically creates a `tsconfig.json` file for our project with the recommended settings.
+- Authentication
+- App auth credential refresh
+- Proper app access revocation
+- Persistent storage
 
-Next.js has built-in TypeScript declarations, so we'll get autocompletion for Next.js' modules straight away.
-
-A `type-check` script is also added to `package.json`, which runs TypeScript's `tsc` CLI in `noEmit` mode to run type-checking separately. You can then include this, for example, in your `test` scripts.
