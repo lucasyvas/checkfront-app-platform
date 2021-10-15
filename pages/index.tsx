@@ -1,124 +1,311 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import Head from "next/head";
 import { GetServerSidePropsContext } from "next";
 
-import { authorized } from "./api/authorized";
-import manifests, { ManifestId } from "../manifests";
-import { MessageChannel } from "../constants";
+import { getAuthorizedApps } from "../api";
+import manifests, { Manifest, ManifestId } from "../manifests";
 
-import { AuthorizationMessage } from "../types";
+type ManifestStatus = {
+  authorizing: ManifestId[];
+  revoking: ManifestId[];
+};
 
-type AuthWindows = Partial<Record<ManifestId, Window>>;
+type AuthorizationResponse = {
+  key: string;
+  secret: string;
+};
 
 type Props = {
-  consumerKey: string;
   authorized?: ManifestId[];
 };
 
-const COMPANY_HOSTNAME = `${process.env.NEXT_PUBLIC_CF_COMPANY}.checkfront.com`;
-const OAUTH_URL = `https://${COMPANY_HOSTNAME}/oauth?response_type=code`;
-const REDIRECT_URI = `http://${COMPANY_HOSTNAME}/apps/auth`;
-
-export default function Index({ consumerKey, authorized = [] }: Props) {
+export default function Index({ authorized = [] }: Props) {
   const [authorizedIds, setAuthorizedIds] = useState(authorized);
-  const authWindowsRef = useRef<AuthWindows>({});
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent<unknown>) => {
-      if (location.origin !== event.origin) {
-        return;
-      }
+  const [manifestStatus, setManifestStatus] = useState<ManifestStatus>({
+    authorizing: [],
+    revoking: [],
+  });
 
-      const message = event.data as AuthorizationMessage | null | undefined;
+  function setManifestIdStatus(
+    id: ManifestId,
+    type: keyof ManifestStatus,
+    nextStatus: boolean
+  ) {
+    const index = manifestStatus[type].findIndex((statusId) => statusId === id);
 
-      if (message?.channel === MessageChannel.Auth) {
-        authWindowsRef.current?.[message.id].close();
+    if (nextStatus && index < 0) {
+      setManifestStatus((manifestStatus) => ({
+        ...manifestStatus,
+        [type]: [...manifestStatus[type], id],
+      }));
+    } else if (!nextStatus) {
+      setManifestStatus((manifestStatus) => {
+        const nextStatusIds = manifestStatus[type].slice();
+        nextStatusIds.splice(index, 1);
+        return { ...manifestStatus, [type]: nextStatusIds };
+      });
+    }
+  }
 
-        authWindowsRef.current = {
-          ...authWindowsRef.current,
-          [message.id]: undefined,
-        };
+  async function handleAuthorize(id: ManifestId) {
+    setManifestIdStatus(id, "authorizing", true);
 
-        setAuthorizedIds((authorizedIds) => [...authorizedIds, message.id]);
-      }
-    };
+    const manifest = manifests[id];
 
-    window.addEventListener("message", handleMessage);
+    const response = await fetch(`/api/apps`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id }),
+    });
 
-    return () => {
-      window.removeEventListener("message", handleMessage);
-      authWindowsRef.current = {};
-    };
-  }, []);
+    const { key, secret } = (await response.json()) as AuthorizationResponse;
 
-  function handleButtonClick(id: ManifestId) {
-    const url = authorizedIds.includes(id)
-      ? manifests[id].homeUrl
-      : `${OAUTH_URL}&client_id=${consumerKey}&redirect_uri=${REDIRECT_URI}/${id}`;
+    window.open(
+      `${manifest.tokenCallbackUrl}?company=${process.env.NEXT_PUBLIC_CF_COMPANY}&key=${key}&secret=${secret}`,
+      "_blank"
+    );
 
-    authWindowsRef.current = {
-      ...authWindowsRef.current,
-      [id]: window.open(url, "_blank"),
-    };
+    setAuthorizedIds((authorizedIds) => [...authorizedIds, id]);
+    setManifestIdStatus(id, "authorizing", false);
+  }
+
+  async function handleLaunch(id: ManifestId) {
+    window.open(manifests[id].homeUrl, "_blank");
+  }
+
+  async function handleRevoke(id: ManifestId) {
+    setManifestIdStatus(id, "revoking", true);
+
+    await fetch(`/api/apps/${id}`, {
+      method: "DELETE",
+    });
+
+    setAuthorizedIds((authorizedIds) => {
+      const index = authorizedIds.findIndex(
+        (authorizedId) => authorizedId === id
+      );
+
+      const nextAuthorizedIds = authorizedIds.slice();
+      nextAuthorizedIds.splice(index, 1);
+
+      return nextAuthorizedIds;
+    });
+
+    setManifestIdStatus(id, "revoking", false);
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen py-2">
+    <Page>
       <Head>
-        <title>Apps | Checkfront</title>
-        <link rel="icon" href="/apps/favicon.ico" />
+        <title>Checkfront Marketplace</title>
+        <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <main className="flex flex-col items-center justify-center w-full flex-1 px-20 text-center">
-        <h1 className="text-6xl font-bold">Checkfront App Platform</h1>
-        <p className="mt-3 text-2xl">
-          Install an app to add new capabilities to Checkfront
-        </p>
+      <Content>
+        <Header />
+        <Apps
+          authorizedIds={authorizedIds}
+          authorizingIds={manifestStatus.authorizing}
+          revokingIds={manifestStatus.revoking}
+          onAuthorize={handleAuthorize}
+          onLaunch={handleLaunch}
+          onRevoke={handleRevoke}
+        />
+      </Content>
+    </Page>
+  );
+}
 
-        <div className="flex flex-wrap items-center justify-around max-w-4xl mt-6 sm:w-full">
-          {Object.values(manifests).map((manifest) => (
-            <div
-              key={manifest.id}
-              className="p-6 mt-6 text-left border w-96 rounded-xl cursor-pointer"
-            >
-              <img
-                className="max-h-16 max-w-16"
-                src={`/apps/apps/${manifest.id}.png`}
-              />
-              <h3 className="mt-4 text-2xl font-bold">{manifest.name}</h3>
-              <p className="mt-4 text-xl">{manifest.description}</p>
-              <Button
-                className="mt-4"
-                authorized={authorizedIds.includes(manifest.id)}
-                onClick={() => handleButtonClick(manifest.id)}
-              />
-            </div>
-          ))}
-        </div>
-      </main>
+function Page({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen py-2">
+      {children}
     </div>
   );
 }
 
-function Button({
-  className,
-  authorized,
-  onClick,
+function Content({ children }: { children: React.ReactNode }) {
+  return (
+    <main className="flex flex-col items-center justify-center w-full flex-1 px-20 text-center">
+      {children}
+    </main>
+  );
+}
+
+function Header() {
+  return (
+    <>
+      <h1 className="text-6xl font-bold">Checkfront Marketplace</h1>
+      <p className="mt-3 text-2xl">
+        Install an app to add new capabilities to Checkfront
+      </p>
+    </>
+  );
+}
+
+function Apps({
+  authorizedIds,
+  authorizingIds,
+  revokingIds,
+  onAuthorize,
+  onLaunch,
+  onRevoke,
 }: {
-  className?: string;
-  authorized?: boolean;
-  onClick: () => void;
+  authorizedIds: ManifestId[];
+  authorizingIds: ManifestId[];
+  revokingIds: ManifestId[];
+  onAuthorize: (manifestId: ManifestId) => void;
+  onLaunch: (manifestId: ManifestId) => void;
+  onRevoke: (manifestId: ManifestId) => void;
 }) {
-  const label = authorized ? "Launch" : "Authorize";
-  const bgColor = authorized ? "bg-green-500" : "bg-blue-500";
-  const bgHover = authorized ? "hover:bg-green-700" : "hover:bg-blue-700";
+  return (
+    <div className="flex flex-wrap items-center justify-around max-w-4xl mt-6 sm:w-full">
+      {Object.values(manifests).map((manifest) => {
+        const isAuthorized = authorizedIds.includes(manifest.id);
+        const isAuthorizing = authorizingIds.includes(manifest.id);
+        const isRevoking = revokingIds.includes(manifest.id);
+
+        return (
+          <App
+            key={manifest.id}
+            manifest={manifest}
+            isAuthorized={isAuthorized}
+            isAuthorizing={isAuthorizing}
+            isRevoking={isRevoking}
+            onAuthorize={() => onAuthorize(manifest.id)}
+            onLaunch={() => onLaunch(manifest.id)}
+            onRevoke={() => onRevoke(manifest.id)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function App({
+  manifest,
+  isAuthorized,
+  isAuthorizing,
+  isRevoking,
+  onAuthorize,
+  onLaunch,
+  onRevoke,
+}: {
+  manifest: Manifest;
+  isAuthorized: boolean;
+  isAuthorizing: boolean;
+  isRevoking: boolean;
+  onAuthorize: () => void;
+  onLaunch: () => void;
+  onRevoke: () => void;
+}) {
+  return (
+    <div
+      key={manifest.id}
+      className="p-6 mt-6 text-left border w-96 rounded-xl"
+    >
+      <img className="max-h-16 max-w-16" src={`/apps/${manifest.id}.png`} />
+      <h3 className="mt-4 text-2xl font-bold">{manifest.name}</h3>
+      <p className="mt-4 text-xl">{manifest.description}</p>
+      <Buttons
+        isAuthorized={isAuthorized}
+        isAuthorizing={isAuthorizing}
+        isRevoking={isRevoking}
+        onAuthorize={onAuthorize}
+        onLaunch={onLaunch}
+        onRevoke={onRevoke}
+      />
+    </div>
+  );
+}
+
+function Buttons({
+  isAuthorized,
+  isAuthorizing,
+  isRevoking,
+  onAuthorize,
+  onLaunch,
+  onRevoke,
+}: {
+  isAuthorized: boolean;
+  isAuthorizing: boolean;
+  isRevoking: boolean;
+  onAuthorize: () => void;
+  onLaunch: () => void;
+  onRevoke: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      {!isAuthorized && (
+        <AuthorizeButton
+          className="mt-4"
+          isAuthorizing={isAuthorizing}
+          onClick={onAuthorize}
+        />
+      )}
+      {isAuthorized && <LaunchButton className="mt-4" onClick={onLaunch} />}
+      {isAuthorized && (
+        <RevokeButton
+          className="mt-4"
+          isRevoking={isRevoking}
+          onClick={onRevoke}
+        />
+      )}
+    </div>
+  );
+}
+
+function AuthorizeButton(
+  props: React.HTMLAttributes<HTMLButtonElement> & { isAuthorizing: boolean }
+) {
+  const { isAuthorizing, ...buttonProps } = props;
 
   return (
-    <button
-      className={`${className.trim()} ${bgColor} ${bgHover} text-white font-bold py-2 px-4 rounded`}
-      onClick={onClick}
+    <Button
+      {...buttonProps}
+      className={`bg-blue-500 hover:bg-blue-700 ${buttonProps.className}`.trim()}
     >
-      {label}
+      {isAuthorizing ? "Authorizing..." : "Authorize"}
+    </Button>
+  );
+}
+
+function LaunchButton(props: React.HTMLAttributes<HTMLButtonElement>) {
+  return (
+    <Button
+      {...props}
+      className={`bg-green-500 hover:bg-green-700 ${props.className}`.trim()}
+    >
+      Launch
+    </Button>
+  );
+}
+
+function RevokeButton(
+  props: React.HTMLAttributes<HTMLButtonElement> & { isRevoking: boolean }
+) {
+  const { isRevoking, ...buttonProps } = props;
+
+  return (
+    <Button
+      {...buttonProps}
+      className={`bg-red-500 hover:bg-red-700 ${buttonProps.className}`.trim()}
+    >
+      {isRevoking ? "Revoking..." : "Revoke"}
+    </Button>
+  );
+}
+
+function Button(props: React.HTMLAttributes<HTMLButtonElement>) {
+  return (
+    <button
+      {...props}
+      className={`text-white font-bold py-2 px-4 rounded ${props.className}`.trim()}
+    >
+      {props.children}
     </button>
   );
 }
@@ -126,8 +313,7 @@ function Button({
 export async function getServerSideProps(_context: GetServerSidePropsContext) {
   return {
     props: {
-      consumerKey: process.env.CF_CONSUMER_KEY,
-      authorized: authorized(),
+      authorized: await getAuthorizedApps(),
     },
   };
 }

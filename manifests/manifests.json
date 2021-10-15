@@ -1,8 +1,8 @@
 {
-  "slack": {
-    "name": "Slack",
-    "description": "Get slack notifications for all of your Checkfront events.",
-    "authCallbackUrl": "http://localhost:3000",
-    "homeUrl": "https://slack.com"
+  "halloweenify": {
+    "name": "Halloweenify",
+    "description": "Give a spooky twist to your Checkront product categories.",
+    "tokenCallbackUrl": "http://localhost:3000",
+    "homeUrl": "http://localhost:3000"
   }
 }

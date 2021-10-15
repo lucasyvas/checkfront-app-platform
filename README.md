@@ -4,7 +4,7 @@ A crude demonstration of a first step toward supporting an app platform for Chec
 
 ## Limitations
 
-Persistent storage relating to which apps have been authorized has been omitted for demonstration simplicity - killing the server will clear all memory of previously authorized applications.
+This application is built as a separate service to core, so it currently has no deployment strategy. More of this will be shared in an architectural review on Demo day.
 
 ## Major Caveats
 
@@ -15,14 +15,15 @@ The primary caveats are related to user authentication and app authorization:
 
 ## Workarounds
 
-To work around the aforementioned caveats, App Platform will expect two environment variables when launching in `.env.local`:
+To work around the aforementioned caveats, App Platform will expect the following environment variables when launching in `.env.local`:
 
 1. `NEXT_PUBLIC_CF_COMPANY=test`
-2. `CF_CONSUMER_KEY=`
+2. `CF_API_KEY=`
+3. `CF_API_SECRET=`
 
-`CF_CONSUMER_KEY` assumes that a _single_ Oauth2 credential is configured in Checkfront Core for the *entirety* of App Platform. This is completely inadqueate for several reasons, but since no API currently exists in core to generate Oauth2 credentials on demand, the user would have to manually generate a consumer key in core and paste it into app platform. For the purposes of this demo, we don't want to do that, so App Platform is limited to a single API credential.
+Because the initial version of App Platform does not support user authentication via Oauth2, traditional API tokens are used to authorize App Platform to a given Checkfront instance.
 
-App Platform will run on port `80` in development, so you will have to change Core's exposed HTTP port in `docker-compose.yml` to not conflict.
+App Platform will run on port `80` in development, so you will have to change Core's exposed HTTP port in [docker-compose.yml](https://bitbucket.org/checkfront/booking-manager/src/main/docker-compose.yml#lines-12) to not conflict.
 
 ## Installing
 
@@ -33,10 +34,4 @@ App Platform will run on port `80` in development, so you will have to change Co
 
 ## Not Implemented
 
-A lot of important stuff!
-
-- Authentication
-- App auth credential refresh
-- Proper app access revocation
-- Persistent storage
-
+- User Authentication
