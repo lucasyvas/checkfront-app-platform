@@ -2,6 +2,10 @@
 
 A crude demonstration of a first step toward supporting an app platform for Checkfront.
 
+## Cloning
+
+`git clone --recurse-submodules`
+
 ## Limitations
 
 This application is built as a separate service to core, so it currently has no deployment strategy. More of this will be shared in an architectural review on Demo day.

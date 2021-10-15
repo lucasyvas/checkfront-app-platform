@@ -1,0 +1,4 @@
+
+[submodule "checkfront-app-manifests"]
+	path = manifests
+	url = git@github.com:lucasyvas/checkfront-app-manifests.git

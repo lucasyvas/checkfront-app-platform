@@ -1,4 +1,4 @@
-import rawManifests from "./manifests.json";
+import rawManifests from "./manifests/manifests.json";
 
 type RawManifests = typeof rawManifests;
 
