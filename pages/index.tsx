@@ -207,7 +207,7 @@ function App({
       key={manifest.id}
       className="p-6 mt-6 text-left border w-96 rounded-xl"
     >
-      <img className="max-h-16 max-w-16" src={`/apps/${manifest.id}.png`} />
+      <img className="max-h-16 max-w-16" src={manifest.logoUrl} />
       <h3 className="mt-4 text-2xl font-bold">{manifest.name}</h3>
       <p className="mt-4 text-xl">{manifest.description}</p>
       <Buttons
