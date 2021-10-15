@@ -1,6 +1,7 @@
-import { useState } from "react";
-import Head from "next/head";
+import { useEffect, useRef, useState } from "react";
 import { GetServerSidePropsContext } from "next";
+import Head from "next/head";
+import { useRouter } from "next/router";
 
 import { getAuthorizedApps } from "../api";
 import manifests, { Manifest, ManifestId } from "../manifests";
@@ -20,12 +21,41 @@ type Props = {
 };
 
 export default function Index({ authorized = [] }: Props) {
+  const {
+    query: { installId },
+  } = useRouter();
+
   const [authorizedIds, setAuthorizedIds] = useState(authorized);
 
   const [manifestStatus, setManifestStatus] = useState<ManifestStatus>({
     authorizing: [],
     revoking: [],
   });
+
+  const canInstallFromUrlRef = useRef(true);
+
+  useEffect(() => {
+    function authorizeFromUrl() {
+      if (!canInstallFromUrlRef.current) {
+        return;
+      }
+
+      const manifestId =
+        ((Array.isArray(installId) ? installId[0] : installId) as ManifestId) ??
+        null;
+
+      const isValidManifestId = Object.keys(manifests).includes(manifestId);
+      const isAuthorized = authorizedIds.includes(manifestId);
+
+      if (isValidManifestId && !isAuthorized) {
+        handleAuthorize(manifestId);
+      }
+
+      canInstallFromUrlRef.current = false;
+    }
+
+    authorizeFromUrl();
+  }, [installId, authorizedIds]);
 
   function setManifestIdStatus(
     id: ManifestId,
