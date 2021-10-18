@@ -1,4 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
+import base64url from "base64url";
 
 import { getAuthorizedApps, createToken } from "../../../api";
 import manifests, { Manifest } from "../../../manifests";
@@ -27,11 +28,11 @@ async function add(req: NextApiRequest, res: NextApiResponse) {
   }
 
   try {
-    const token = await createToken(manifest.id);
+    const { clientId, clientSecret } = await createToken(manifest.id);
 
     return res
       .status(200)
-      .json({ key: token.clientId, secret: token.clientSecret });
+      .json({ token: base64url(`${clientId}:${clientSecret}`) });
   } catch (error) {
     return res.status(500).json(error);
   }

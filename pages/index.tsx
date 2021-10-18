@@ -12,8 +12,7 @@ type ManifestStatus = {
 };
 
 type AuthorizationResponse = {
-  key: string;
-  secret: string;
+  token: string;
 };
 
 type Props = {
@@ -22,7 +21,7 @@ type Props = {
 
 export default function Index({ authorized = [] }: Props) {
   const {
-    query: { installId },
+    query: { authAppId },
   } = useRouter();
 
   const [authorizedIds, setAuthorizedIds] = useState(authorized);
@@ -41,7 +40,7 @@ export default function Index({ authorized = [] }: Props) {
       }
 
       const manifestId =
-        ((Array.isArray(installId) ? installId[0] : installId) as ManifestId) ??
+        ((Array.isArray(authAppId) ? authAppId[0] : authAppId) as ManifestId) ??
         null;
 
       const isValidManifestId = Object.keys(manifests).includes(manifestId);
@@ -55,7 +54,7 @@ export default function Index({ authorized = [] }: Props) {
     }
 
     authorizeFromUrl();
-  }, [installId, authorizedIds]);
+  }, [authAppId, authorizedIds]);
 
   function setManifestIdStatus(
     id: ManifestId,
@@ -91,10 +90,10 @@ export default function Index({ authorized = [] }: Props) {
       body: JSON.stringify({ id }),
     });
 
-    const { key, secret } = (await response.json()) as AuthorizationResponse;
+    const { token } = (await response.json()) as AuthorizationResponse;
 
     window.open(
-      `${manifest.tokenCallbackUrl}?company=${process.env.NEXT_PUBLIC_CF_COMPANY}&key=${key}&secret=${secret}`,
+      `${manifest.tokenCallbackUrl}#access_token=${token}?token_type=Basic&expires_in=&state=&scope=company:${process.env.NEXT_PUBLIC_CF_COMPANY}`,
       "_blank"
     );
 
