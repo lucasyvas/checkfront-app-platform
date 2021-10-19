@@ -36,6 +36,7 @@ App Platform will run on port `80` in development, so you will have to change Co
 ## Installing
 
 `yarn`
+
 ## Running
 
 `yarn dev`
@@ -43,3 +44,7 @@ App Platform will run on port `80` in development, so you will have to change Co
 ## Not Implemented
 
 - User Authentication
+
+## Informational Slides
+
+https://lucid.app/lucidchart/0e48360c-ffb3-43eb-8491-20bf9b726545/edit?invitationId=inv_ab01d114-e0af-4907-91c4-b3eb3136c933
